@@ -982,63 +982,31 @@ out:
 
 static bool stratum_notify(struct stratum_ctx *sctx, json_t *params)
 {
-  const char *job_id, *prevhash, *coinb1, *coinb2, *version, *nbits, *ntime;
-  size_t coinb1_size, coinb2_size;
+  const char *job_id, *prevhash, *mrklroot, *version, *nbits, *ntime;
   bool clean, ret = false;
   int merkle_count, i;
-  json_t *merkle_arr;
   unsigned char **merkle;
 
   job_id = json_string_value(json_array_get(params, 0));
   prevhash = json_string_value(json_array_get(params, 1));
-  coinb1 = json_string_value(json_array_get(params, 2));
-  coinb2 = json_string_value(json_array_get(params, 3));
-  merkle_arr = json_array_get(params, 4);
-  if (!merkle_arr || !json_is_array(merkle_arr))
-    goto out;
-  merkle_count = json_array_size(merkle_arr);
-  version = json_string_value(json_array_get(params, 5));
-  nbits = json_string_value(json_array_get(params, 6));
-  ntime = json_string_value(json_array_get(params, 7));
-  clean = json_is_true(json_array_get(params, 8));
+  mrklroot = json_string_value(json_array_get(params, 2));
+  version = json_string_value(json_array_get(params, 3));
+  nbits = json_string_value(json_array_get(params, 4));
+  ntime = json_string_value(json_array_get(params, 5));
+  clean = json_is_true(json_array_get(params,6));
 
-  if (!job_id || !prevhash || !coinb1 || !coinb2 || !version || !nbits || !ntime ||
-      strlen(prevhash) != 64 || strlen(version) != 8 ||
+  if (!job_id || !prevhash || !version || !nbits || !ntime || strlen(prevhash) != 64 || 
       strlen(nbits) != 8 || strlen(ntime) != 8) {
     applog(LOG_ERR, "Stratum notify: invalid parameters");
     goto out;
   }
-  merkle = malloc(merkle_count * sizeof(char *));
-  for (i = 0; i < merkle_count; i++) {
-    const char *s = json_string_value(json_array_get(merkle_arr, i));
-    if (!s || strlen(s) != 64) {
-      while (i--)
-        free(merkle[i]);
-      free(merkle);
-      applog(LOG_ERR, "Stratum notify: invalid Merkle branch");
-      goto out;
-    }
-    merkle[i] = malloc(32);
-    hex2bin(merkle[i], s, 32);
-  }
 
   pthread_mutex_lock(&sctx->work_lock);
-
-  coinb1_size = strlen(coinb1) / 2;
-  coinb2_size = strlen(coinb2) / 2;
-  sctx->job.coinbase_size = coinb1_size + sctx->xnonce1_size +
-    sctx->xnonce2_size + coinb2_size;
-  sctx->job.coinbase = realloc(sctx->job.coinbase, sctx->job.coinbase_size);
-  sctx->job.xnonce2 = sctx->job.coinbase + coinb1_size + sctx->xnonce1_size;
-  hex2bin(sctx->job.coinbase, coinb1, coinb1_size);
-  memcpy(sctx->job.coinbase + coinb1_size, sctx->xnonce1, sctx->xnonce1_size);
-  if (!sctx->job.job_id || strcmp(sctx->job.job_id, job_id))
-    memset(sctx->job.xnonce2, 0, sctx->xnonce2_size);
-  hex2bin(sctx->job.xnonce2 + sctx->xnonce2_size, coinb2, coinb2_size);
 
   free(sctx->job.job_id);
   sctx->job.job_id = strdup(job_id);
   hex2bin(sctx->job.prevhash, prevhash, 32);
+  hex2bin(sctx->job.mrklroot, mrklroot, 32);
 
   for (i = 0; i < sctx->job.merkle_count; i++)
     free(sctx->job.merkle[i]);

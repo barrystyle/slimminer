@@ -648,17 +648,6 @@ static void stratum_gen_work(struct stratum_ctx *sctx, struct work *work)
 
   strcpy(work->job_id, sctx->job.job_id);
   work->xnonce2_len = sctx->xnonce2_size;
-  memcpy(work->xnonce2, sctx->job.xnonce2, sctx->xnonce2_size);
-
-  /* Generate merkle root */
-  sha256d(merkle_root, sctx->job.coinbase, sctx->job.coinbase_size);
-  for (i = 0; i < sctx->job.merkle_count; i++) {
-    memcpy(merkle_root + 32, sctx->job.merkle[i], 32);
-    sha256d(merkle_root, merkle_root, 64);
-  }
-	
-  /* Increment extranonce2 */
-  for (i = 0; i < sctx->xnonce2_size && !++sctx->job.xnonce2[i]; i++);
 
   /* Assemble block header */
   memset(work->data, 0, 128);
@@ -666,7 +655,7 @@ static void stratum_gen_work(struct stratum_ctx *sctx, struct work *work)
   for (i = 0; i < 8; i++)
     work->data[1 + i] = le32dec((uint32_t *)sctx->job.prevhash + i);
   for (i = 0; i < 8; i++)
-    work->data[9 + i] = be32dec((uint32_t *)merkle_root + i);
+    work->data[9 + i] = be32dec((uint32_t *)sctx->job.mrklroot + i);
   work->data[17] = le32dec(sctx->job.ntime);
   work->data[18] = le32dec(sctx->job.nbits);
   work->data[20] = 0x80000000;
